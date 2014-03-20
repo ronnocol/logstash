@@ -19,7 +19,7 @@ GEOIP=vendor/geoip/GeoLiteCity.dat
 GEOIP_URL=http://logstash.objects.dreamhost.com/maxmind/GeoLiteCity-2013-01-18.dat.gz
 GEOIP_ASN=vendor/geoip/GeoIPASNum.dat
 GEOIP_ASN_URL=http://logstash.objects.dreamhost.com/maxmind/GeoIPASNum-2014-02-12.dat.gz
-KIBANA_URL=https://download.elasticsearch.org/kibana/kibana/kibana-3.0.0milestone5.tar.gz
+KIBANA_URL=https://download.elasticsearch.org/kibana/kibana/kibana-3.0.0.tar.gz
 PLUGIN_FILES=$(shell find lib -type f| egrep '^lib/logstash/(inputs|outputs|filters|codecs)/[^/]+$$' | egrep -v '/(base|threadable).rb$$|/inputs/ganglia/')
 QUIET=@
 ifeq (@,$(QUIET))
@@ -43,7 +43,7 @@ default:
 	@echo "  tarball -- builds the tarball package"
 	@echo "  tarball-test -- runs the test suite against the tarball package"
 
-TESTS=$(wildcard spec/inputs/gelf.rb spec/inputs/imap.rb spec/util/*.rb spec/support/*.rb spec/filters/*.rb spec/examples/*.rb spec/codecs/*.rb spec/conditionals/*.rb spec/event.rb spec/jar.rb spec/web.rb)
+TESTS=$(wildcard spec/**/*.rb)
 
 # The 'version' is generated based on the logstash version, git revision, etc.
 .VERSION.mk: REVISION=$(shell git rev-parse --short HEAD | tr -d ' ')
