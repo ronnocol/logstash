@@ -1,5 +1,6 @@
 # encoding: utf-8
 require "logstash/namespace"
+require "logstash/environment"
 require "logstash/outputs/base"
 require "stud/buffer"
 require "socket" # for Socket.gethostname
@@ -191,16 +192,14 @@ class LogStash::Outputs::ElasticSearch < LogStash::Outputs::Base
     end
 
     if @protocol.nil?
-      @protocol = (RUBY_PLATFORM == "java") ? "node" : "http"
+      @protocol = LogStash::Environment.jruby? ? "node" : "http"
     end
 
     if ["node", "transport"].include?(@protocol)
       # Node or TransportClient; requires JRuby
-      if RUBY_PLATFORM != "java"
-        raise LogStash::PluginLoadingError, "This configuration requires JRuby. If you are not using JRuby, you must set 'protocol' to 'http'. For example: output { elasticsearch { protocol => \"http\" } }"
-      end
+      raise(LogStash::PluginLoadingError, "This configuration requires JRuby. If you are not using JRuby, you must set 'protocol' to 'http'. For example: output { elasticsearch { protocol => \"http\" } }") unless LogStash::Environment.jruby?
+      LogStash::Environment.load_elasticsearch_jars!
 
-      require "logstash/loadlibs"
       # setup log4j properties for Elasticsearch
       LogStash::Logger.setup_log4j(@logger)
     end
@@ -235,16 +234,10 @@ class LogStash::Outputs::ElasticSearch < LogStash::Outputs::Base
         LogStash::Outputs::Elasticsearch::Protocols::HTTPClient
     end
 
-    @client = client_class.new(options)
-
-    @logger.info("New Elasticsearch output", :cluster => @cluster,
-                 :host => @host, :port => @port, :embedded => @embedded,
-                 :protocol => @protocol)
-
     if @embedded
-      if RUBY_PLATFORM != "java"
-        raise LogStash::ConfigurationError, "The 'embedded => true' setting is only valid for the elasticsearch output under JRuby. You are running #{RUBY_DESCRIPTION}"
-      end
+      raise(LogStash::ConfigurationError, "The 'embedded => true' setting is only valid for the elasticsearch output under JRuby. You are running #{RUBY_DESCRIPTION}") unless LogStash::Environment.jruby?
+      LogStash::Environment.load_elasticsearch_jars!
+
       # Default @host with embedded to localhost. This should help avoid
       # newbies tripping on ubuntu and other distros that have a default
       # firewall that blocks multicast.
@@ -253,6 +246,12 @@ class LogStash::Outputs::ElasticSearch < LogStash::Outputs::Base
       # Start Elasticsearch local.
       start_local_elasticsearch
     end
+
+    @client = client_class.new(options)
+
+    @logger.info("New Elasticsearch output", :cluster => @cluster,
+                 :host => @host, :port => @port, :embedded => @embedded,
+                 :protocol => @protocol)
 
 
     if @manage_template
@@ -304,6 +303,7 @@ class LogStash::Outputs::ElasticSearch < LogStash::Outputs::Base
     #builder.local(true)
     builder.settings.put("cluster.name", @cluster) if @cluster
     builder.settings.put("node.name", @node_name) if @node_name
+    builder.settings.put("network.host", @bind_host) if @bind_host
     builder.settings.put("http.port", @embedded_http_port)
 
     @embedded_elasticsearch = builder.node
